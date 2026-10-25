@@ -93,19 +93,25 @@ jobs:
           # A halott pesa1234 hivatkozás kigyomlálása a csomagkezelőből
           sed -i '/pesa1234/d' /etc/apk/repositories /etc/apk/repositories.d/* /etc/opkg/customfeeds.conf 2>/dev/null
           
-          # Hardware és Software Flow Offloading (Routing/NAT) letiltása a háttérben
+          # Hardware és Software Flow Offloading letiltása
           uci -q set firewall.@defaults[0].flow_offloading='0'
           uci -q set firewall.@defaults[0].flow_offloading_hw='0'
           uci commit firewall
           
-          # Tűzfal és DHCP démonok futnak (LuCI menük miatt), de a DHCP (IPv4 és IPv6) osztást szigorúan tiltjuk a LAN-on!
-          uci -q set dhcp.lan.ignore='1'
-          uci -q set dhcp.lan.dhcpv6='disabled'
-          uci -q set dhcp.lan.ra='disabled'
-          uci -q set dhcp.lan.ndp='disabled'
-          uci commit dhcp
+          # Mivel híd (Bridge) módban a kernel úgyis megkerüli a tűzfalat, felesleges futtatni őket
+          for s in dnsmasq odhcpd firewall adblock-fast pbr; do
+              if [ -x /etc/init.d/$s ]; then
+                  /etc/init.d/$s disable
+                  /etc/init.d/$s stop
+              fi
+          done
           
-          for s in lldpd usteer; do
+          # Agresszív kozmetika: A fantom LuCI Firewall és DHCP/DNS menük végleges törlése a felületről
+          rm -f /usr/share/luci/menu.d/luci-app-firewall.json 2>/dev/null
+          rm -f /usr/share/luci/menu.d/luci-app-dhcp.json 2>/dev/null
+          
+          # Fontos szolgáltatások (és a Dropbear SSH) engedélyezése
+          for s in lldpd usteer dropbear; do
               if [ -x /etc/init.d/$s ]; then
                   /etc/init.d/$s enable
               fi
@@ -131,11 +137,18 @@ jobs:
           CONFIG_PACKAGE_usteer=y
           CONFIG_PACKAGE_luci-app-usteer=y
           
-          # IPv6 kliens (SLAAC / DHCPv6) és LuCI menü visszakapcsolása
+          # IPv6 kliens (SLAAC / DHCPv6) és LuCI menü
           CONFIG_PACKAGE_odhcp6c=y
           CONFIG_PACKAGE_luci-proto-ipv6=y
 
-          # cjom VPN, PBR, AdBlock, SQM és OpenSSH tiltása (Dropbear marad)
+          # Gyári pehelysúlyú SSH szerver (Dropbear) VISSZAKAPCSOLÁSA
+          CONFIG_PACKAGE_dropbear=y
+
+          # Tűzfal és DHCP felületek mellőzése (ha a fordító engedi, de a szkriptünk amúgy is törli őket)
+          # CONFIG_PACKAGE_luci-app-firewall is not set
+          # CONFIG_PACKAGE_luci-app-dhcp is not set
+
+          # cjom VPN, PBR, AdBlock, SQM és OpenSSH tiltása
           # CONFIG_PACKAGE_adblock-fast is not set
           # CONFIG_PACKAGE_luci-app-adblock-fast is not set
           # CONFIG_PACKAGE_pbr is not set
@@ -196,9 +209,9 @@ jobs:
           ### 📝 Build Information (Custom Dumb AP Edition)
           - **Target:** [Flint 2 (GL-MT6000)](https://openwrt.org/toh/gl.inet/gl-mt6000)
           - **Configuration:** [${{ env.CONFIG_FILE }}](${{ env.CONFIG_FILE }})
-          - **ADDED:** lldpd (+LuCI), usteer (+LuCI), IPv6 client (odhcp6c), Attended Sysupgrade
+          - **ADDED:** lldpd (+LuCI), usteer (+LuCI), IPv6 client (odhcp6c), Attended Sysupgrade, Dropbear (SSH)
           - **REMOVED:** VPN, PBR, AdBlock, SMB, USB, iptables, QOL overrides, OpenSSH
-          - **MODIFIED:** Firewall & DHCP demons active (for LuCI), but DHCP (IPv4+IPv6) serving strictly disabled on LAN" --title "OpenWrt Dumb AP Release for Flint 2 (${{ needs.check_commits.outputs.release_prefix }}-${RELEASE_DATE})" firmware/*
+          - **MODIFIED:** Firewall & DHCP demons fully disabled; Ghost LuCI menus physically removed via 99-dumb-ap" --title "OpenWrt Dumb AP Release for Flint 2 (${{ needs.check_commits.outputs.release_prefix }}-${RELEASE_DATE})" firmware/*
 
       - name: Clean up old releases
         run: |
