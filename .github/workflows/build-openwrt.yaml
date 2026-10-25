@@ -89,6 +89,15 @@ jobs:
           mkdir -p files/etc/uci-defaults
           cat << 'EOF' > files/etc/uci-defaults/99-dumb-ap
           #!/bin/sh
+          
+          # A halott pesa1234 hivatkozás kigyomlálása a csomagkezelőből
+          sed -i '/pesa1234/d' /etc/apk/repositories /etc/apk/repositories.d/* /etc/opkg/customfeeds.conf 2>/dev/null
+          
+          # Hardware és Software Flow Offloading (Routing/NAT) letiltása a háttérben
+          uci -q set firewall.@defaults[0].flow_offloading='0'
+          uci -q set firewall.@defaults[0].flow_offloading_hw='0'
+          uci commit firewall
+          
           for s in dnsmasq odhcpd firewall adblock-fast pbr; do
               if [ -x /etc/init.d/$s ]; then
                   /etc/init.d/$s disable
@@ -120,6 +129,14 @@ jobs:
           CONFIG_PACKAGE_luci-app-lldpd=y
           CONFIG_PACKAGE_usteer=y
           CONFIG_PACKAGE_luci-app-usteer=y
+          
+          # IPv6 kliens (SLAAC / DHCPv6) és LuCI menü visszakapcsolása
+          CONFIG_PACKAGE_odhcp6c=y
+          CONFIG_PACKAGE_luci-proto-ipv6=y
+
+          # Tűzfal és DNS/DHCP webes felületeinek (LuCI) teljes eltávolítása
+          # CONFIG_PACKAGE_luci-app-firewall is not set
+          # CONFIG_PACKAGE_luci-app-dhcp is not set
 
           # cjom VPN, PBR, AdBlock, SQM és OpenSSH tiltása (Dropbear marad)
           # CONFIG_PACKAGE_adblock-fast is not set
@@ -183,8 +200,8 @@ jobs:
           ### 📝 Build Information (Custom Dumb AP Edition)
           - **Target:** [Flint 2 (GL-MT6000)](https://openwrt.org/toh/gl.inet/gl-mt6000)
           - **Configuration:** [${{ env.CONFIG_FILE }}](${{ env.CONFIG_FILE }})
-          - **ADDED:** lldpd (+LuCI), usteer (+LuCI), WiFi UCODE scripts, Attended Sysupgrade
-          - **REMOVED:** WireGuard, PBR, AdBlock-Fast, NordVPN, odhcp, upnp, iptables, avahi, samba, usb storage, QOL overrides, OpenSSH (Dropbear retained)" --title "OpenWrt Dumb AP Release for Flint 2 (${{ needs.check_commits.outputs.release_prefix }}-${RELEASE_DATE})" firmware/*
+          - **ADDED:** lldpd (+LuCI), usteer (+LuCI), IPv6 client (odhcp6c), Attended Sysupgrade
+          - **REMOVED:** Firewall (LuCI+HW Offload), WireGuard, PBR, AdBlock, NordVPN, DHCP/DNS menus, iptables, samba, usb, QOL overrides, OpenSSH (Dropbear retained)" --title "OpenWrt Dumb AP Release for Flint 2 (${{ needs.check_commits.outputs.release_prefix }}-${RELEASE_DATE})" firmware/*
 
       - name: Clean up old releases
         run: |
