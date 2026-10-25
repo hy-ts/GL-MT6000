@@ -1,6 +1,6 @@
 # GL-MT6000 custom OpenWrt firmware builder
 
-This repository automates the process of building OpenWrt custom firmware images for **MY** Flint 2 (GL-MT6000) router, based on **MY PREFERENCES** and [pesa1234](https://github.com/pesa1234)'s work.
+This repository automates the process of building OpenWrt custom firmware images for my Flint 2 (GL-MT6000) router, based on my preferences and [cjom](https://github.com/cjom/GL-MT6000)'s work.
 
 You should **not use** the firmwares released in this repository unless you have the same preferences/needs.
 Instead, **make a fork and adapt to your needs**.
@@ -9,23 +9,15 @@ Read [this topic](https://forum.openwrt.org/t/mt6000-custom-build-with-luci-and-
 
 Compared to his custom firmware, this firmware adds:
 - **WiFi UCODE scripts** (faster boot)
-- **Wireguard VPN**
-- **Policy Based Routing** (select what goes through VPN and what not)
-- **AdBlock Fast** (ads and malware blocking at DNS level)
-- **Custom Attended Sysupgrade** (install custom firmware from GitHub)
-- **NordVPN Lite installer** (optional: nothing is downloaded until you run it)
 
 And also:
 - **REMOVED:** odhcp, upnp, iptables, avahi, samba, usb storage and probably more stuff I forgot to mention.
 - Added the needed packages to use QoS script [cake-wg-pbr](https://github.com/lynxthecat/cake-wg-pbr)
 - Some compiler optimizations and build hardening options (cortex-a53+crc+crypto; LTO, MOLD, and more).
-- SSH configuration with strong algorithms and key exchange methods. Check the content of [`ssh_hardening.config`](files/etc/ssh/sshd_config.d/ssh_hardening.conf) and [`sshd_config`](files/etc/ssh/sshd_config).
-- Quality-of-life enhancements through UCI configuration. Check the content of [`99-QOL_config`](files/etc/uci-defaults/99-QOL_config).
 - Some debug and kernel stuff removed.
 - [`upgrade_custom_openwrt`](files/usr/bin/upgrade_custom_openwrt) script
 
 Check the content of [`mt6000.config`](mt6000.config) for details.
-
 
 
 ## About Custom Attended Sysupgrade
@@ -47,19 +39,7 @@ Using Luci's menu "System" --> "Attended Sysupgrade" it is now possible to selec
 Notes:
 - if you fork this repository, this will be adapted to look for upgrades in your repository by default.
 
-
-
-## About NordVPN Lite
-
-The firmware does not include NordVPN Lite itself, only the packages it needs and an installer. Nothing is downloaded until you run, from a SSH terminal:
-- `nordvpnlite-install --install` to install the latest release and enable a daily update check (at 04:38).
-- `nordvpnlite-install --check` to compare the installed and latest versions.
-- `nordvpnlite-install --uninstall` to remove it (the configuration and login are kept).
-
-After installing, log in with `nordvpnlite login <token>` or in Luci's menu "Services" --> "NordVPN Lite", then start it with `/etc/init.d/nordvpnlite start`. When an update is installed, a running NordVPN Lite is restarted.
-
 Notes:
-- The binary comes from the releases of [cjom/libtelio](https://github.com/cjom/libtelio/releases), a fork of NordSecurity's libtelio that adds a tunnel health check and an option to leave dnsmasq untouched. To use another fork, change `REPOSITORY` in [`nordvpnlite-install`](files/usr/sbin/nordvpnlite-install).
 - The installed files survive firmware upgrades.
 - The text output of the installer will show both in terminal and system logs.
 
@@ -83,22 +63,9 @@ Notes:
 - The text output of upgrade_custom_openwrt script will show both in terminal and system logs.
 
 
-
-## About SSH Hardening
-
-To enhance the security of SSH connections, this firmware includes a hardened SSH configuration. The configuration is derived from recommendations by [SSH-Audit](https://github.com/jtesta/ssh-audit) and the [BSI](https://www.bsi.bund.de/), it specifies strong key exchange algorithms, ciphers, message authentication codes (MACs), host key algorithms, and public key algorithms. This ensures that only secure and up-to-date algorithms are used for SSH communication.
-
-
-
-## Contributing
-
-Contributions to this project are welcome. If you encounter any issues or have suggestions for improvements, please open an issue or submit a pull request on the GitHub repository.
-
-
-
 ## Acknowledgements
 
 - The OpenWrt project for providing the foundation for this firmware build and support of [GL.iNet GL-MT6000](https://openwrt.org/toh/gl.inet/gl-mt6000) router.
 - The community over at the [OpenWrt forum](https://forum.openwrt.org/t/mt6000-custom-build-with-luci-and-some-optimization-kernel-6-12-x/185241) for their valuable contributions and resources. 
 - [pesa1234](https://github.com/pesa1234) for his [MT6000 custom builds](https://github.com/pesa1234/MT6000_cust_build).
-- [Julius Bairaktaris](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder) from whom I "borrowed" much of this project (his repository is about custom builds for Xiaomi AX3600).
+- [cjom](https://github.com/cjom) for his [MT6000 custom builds](https://github.com/cjom/GL-MT6000).
