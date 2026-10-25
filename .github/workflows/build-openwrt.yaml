@@ -1,3 +1,4 @@
+YAML
 name: Build OpenWrt for GL-MT6000
 
 permissions:
@@ -68,23 +69,84 @@ jobs:
         run: |
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          # run again because sometimes it misses some dependencies
           ./scripts/feeds install -a
 
       - name: Setup configuration and custom files
         run: |
-          # delete unneeded folders and patch files with repository info
+          # Repo info patch and file move
           rm -frv builder_repo/.git builder_repo/.github
           for file in $(grep -rl XXXXXX builder_repo/); do echo "Patching: $file"; sed -i 's|XXXXXX/YYYYYY|${{ github.repository }}|g' "$file" || exit 1; done
           patch -p1 < builder_repo/attendedsysupgrade-with-GitHub.patch
           mv -v builder_repo/files ./
-          # Mark every shipped executable 755
+
+          # --- 1. CJOM EGYEDI FÁJLJAINAK TÖRLÉSE ---
+          find files/ -iname "*nordvpn*" -o -iname "*pbr*" -o -iname "*adblock*" | xargs rm -rfv ||:
+          # QOL Wi-Fi beállítások, DHCP kényszerítés és OpenSSH szigorítás törlése
+          rm -f files/etc/uci-defaults/99_QOL_config
+          rm -f files/etc/uci-defaults/50_dhcp_default_migration
+          rm -rf files/etc/ssh
+
+          # --- 2. DUMB AP AUTOMATIKUS BEÁLLÍTÓ SZKRIPT LÉTREHOZÁSA ---
+          mkdir -p files/etc/uci-defaults
+          cat << 'EOF' > files/etc/uci-defaults/99-dumb-ap
+          #!/bin/sh
+          for s in dnsmasq odhcpd firewall adblock-fast pbr; do
+              if [ -x /etc/init.d/$s ]; then
+                  /etc/init.d/$s disable
+                  /etc/init.d/$s stop
+              fi
+          done
+          for s in lldpd usteer; do
+              if [ -x /etc/init.d/$s ]; then
+                  /etc/init.d/$s enable
+              fi
+          done
+          exit 0
+          EOF
+          chmod 755 files/etc/uci-defaults/99-dumb-ap
+
+          # Executable permissions
           for d in files/usr/bin files/usr/sbin files/etc/init.d files/www/cgi-bin; do
             [ -d "$d" ] || continue
             find "$d" -type f -exec chmod -v 755 {} +
           done
+
           mv -v builder_repo/${{ env.CONFIG_FILE }} .config
           rm -rfv builder_repo
+
+          # --- 3. CSOMAGOK HOZZÁADÁSA ÉS FELESLEGESEK TILTÁSA ---
+          cat << 'EOF' >> .config
+          # LLDPD és USTEER engedélyezése LuCI-val
+          CONFIG_PACKAGE_lldpd=y
+          CONFIG_PACKAGE_luci-app-lldpd=y
+          CONFIG_PACKAGE_usteer=y
+          CONFIG_PACKAGE_luci-app-usteer=y
+
+          # cjom VPN, PBR, AdBlock, SQM és OpenSSH tiltása (Dropbear marad)
+          # CONFIG_PACKAGE_adblock-fast is not set
+          # CONFIG_PACKAGE_luci-app-adblock-fast is not set
+          # CONFIG_PACKAGE_pbr is not set
+          # CONFIG_PACKAGE_luci-app-pbr is not set
+          # CONFIG_PACKAGE_wireguard-tools is not set
+          # CONFIG_PACKAGE_luci-proto-wireguard is not set
+          # CONFIG_PACKAGE_kmod-wireguard is not set
+          # CONFIG_PACKAGE_sqm-scripts is not set
+          # CONFIG_PACKAGE_luci-app-sqm is not set
+          # CONFIG_PACKAGE_openssh-server is not set
+          # CONFIG_PACKAGE_openssh-sftp-server is not set
+
+          # pesa1234 SMB és USB csomagok tiltása
+          # CONFIG_PACKAGE_samba4-server is not set
+          # CONFIG_PACKAGE_luci-app-samba4 is not set
+          # CONFIG_PACKAGE_ksmbd-server is not set
+          # CONFIG_PACKAGE_luci-app-ksmbd is not set
+          # CONFIG_PACKAGE_block-mount is not set
+          # CONFIG_PACKAGE_kmod-usb-storage is not set
+          # CONFIG_PACKAGE_kmod-usb-storage-uas is not set
+          # CONFIG_PACKAGE_kmod-usb3 is not set
+          # CONFIG_PACKAGE_kmod-usb2 is not set
+          EOF
+
           make defconfig
 
       - name: Build firmware
@@ -119,19 +181,14 @@ jobs:
           - **Branch:** ${{ needs.check_commits.outputs.remote_branch }}
           - **Commit:** [${{ needs.check_commits.outputs.latest_commit_sha }}](https://github.com/${{ env.REMOTE_REPOSITORY }}/tree/${{ needs.check_commits.outputs.latest_commit_sha }})
           
-          ### 📝 Build Information
+          ### 📝 Build Information (Custom Dumb AP Edition)
           - **Target:** [Flint 2 (GL-MT6000)](https://openwrt.org/toh/gl.inet/gl-mt6000)
           - **Configuration:** [${{ env.CONFIG_FILE }}](${{ env.CONFIG_FILE }})
-          - **WiFi UCODE scripts**
-          - **Wireguard VPN**
-          - **Policy Based Routing**
-          - **Ad Block Fast**
-          - **My custom nordvpnlite installer script**
-          - **REMOVED:** odhcp, upnp, iptables, avahi, samba, usb storage..." --title "OpenWrt Custom Release for Flint 2 (${{ needs.check_commits.outputs.release_prefix }}-${RELEASE_DATE})" firmware/*
+          - **ADDED:** lldpd (+LuCI), usteer (+LuCI), WiFi UCODE scripts, Attended Sysupgrade
+          - **REMOVED:** WireGuard, PBR, AdBlock-Fast, NordVPN, odhcp, upnp, iptables, avahi, samba, usb storage, QOL overrides, OpenSSH (Dropbear retained)" --title "OpenWrt Dumb AP Release for Flint 2 (${{ needs.check_commits.outputs.release_prefix }}-${RELEASE_DATE})" firmware/*
 
       - name: Clean up old releases
         run: |
-          # '.[0:10][]' limits to the 10 most recent releases
           gh api repos/${{ github.repository }}/releases | jq -r '.[10:][] | "\(.id) \(.tag_name)"' | while read id tag; do
             gh api -X DELETE "repos/${{ github.repository }}/releases/$id" && gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" 2>/dev/null ||:
           done
