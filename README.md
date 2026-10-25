@@ -10,7 +10,8 @@ Compared to his custom firmware, this firmware adds:
 - Usteer
 
 Notes:
-- if you fork this repository, the script will be adapted to look for upgrades in your repository.
+- **The purpose of this firmware is exclusively Access Point operation**.
+- If you fork this repository, the script will be adapted to look for upgrades in your repository.
 - The text output of upgrade_custom_openwrt script will show both in terminal and system logs.
 
 ## Acknowledgements
