@@ -1,4 +1,3 @@
-YAML
 name: Build OpenWrt for GL-MT6000
 
 permissions:
