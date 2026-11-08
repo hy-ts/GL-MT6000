@@ -6,11 +6,17 @@ permissions:
 
 on:
   workflow_dispatch:
+    inputs:
+      force_build:
+        description: "Force build even if there are no new upstream commits"
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - main
   schedule:
-    - cron: "20 3 * * *"
+    - cron: "20 1 * * *"
 
 env:
   REMOTE_REPOSITORY: pesa1234/openwrt
@@ -48,7 +54,7 @@ jobs:
   build:
     name: Build OpenWrt
     needs: check_commits
-    if: needs.check_commits.outputs.new_commits == 'true'
+    if: needs.check_commits.outputs.new_commits == 'true' || inputs.force_build == true
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Install dependencies
