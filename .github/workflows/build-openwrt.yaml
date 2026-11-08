@@ -16,7 +16,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: "20 1 * * *"
+    - cron: "20 3 * * *"
 
 env:
   REMOTE_REPOSITORY: pesa1234/openwrt
